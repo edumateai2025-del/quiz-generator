@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EduMate — Quiz & Question Bank</title>
+<style>
+body { font-family:'Inter',system-ui,Arial; margin:0; background:linear-gradient(120deg,#0f172a,#1e3a8a); color:#fff; min-height:100vh; overflow-x:hidden; }
+canvas#bgCanvas { position:fixed; top:0; left:0; z-index:-1; }
+header { background:transparent; padding:18px; text-align:center; font-weight:800; font-size:22px; }
+.wrap { max-width:980px; margin:12px auto; padding:18px; }
+button { border:none; padding:10px 16px; border-radius:8px; cursor:pointer; font-weight:700; }
+button#startBtn { background:#10b981; color:#fff; }
+button#nextBtn { background:#3b82f6; color:#fff; display:none; }
+.card { background:rgba(255,255,255,0.06); padding:16px; border-radius:12px; margin-top:16px; box-shadow:0 10px 30px rgba(2,6,23,0.5); }
+.question { font-weight:800; margin-bottom:10px; }
+.options button { display:block; width:100%; text-align:left; margin:8px 0; padding:10px; border-radius:8px; background:rgba(255,255,255,0.06); color:#fff; }
+.options button.selected { outline:3px solid rgba(16,185,129,0.6); }
+#timer { text-align:center; font-size:18px; margin:10px; color:#ffeb3b; }
+.results { background:rgba(255,255,255,0.06); padding:14px; border-radius:10px; margin-top:12px; }
+#resultArea div { margin-top:8px; }
+.admin { background:rgba(0,0,0,0.3); padding:16px; border-radius:12px; margin-top:20px; display:none; }
+.row { display:flex; gap:12px; flex-wrap:wrap; }
+input,textarea,select { width:100%; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; }
+input::placeholder,textarea::placeholder { color: rgba(255,255,255,0.5); }
+.col{flex:1 1 300px; min-width:240px}
+button.ghost{background:transparent;color:#9fb4d8;border:1px solid rgba(255,255,255,0.2);}
+.list{margin-top:18px; max-height:350px; overflow-y:auto; padding-right:6px;}
+.actions{display:flex; gap:8px; margin-top:8px;}
+.total-count{text-align:right;margin-bottom:8px;font-weight:700;color:#06b6d4;}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<header>EduMate — Quiz & Question Bank</header>
+<div class="wrap">
+
+<!-- Password Login for Admin -->
+<div id="loginSection" style="text-align:center; margin-bottom:16px;">
+  <input type="password" id="adminPassword" placeholder="Enter Admin Password">
+  <button id="loginBtn">Login</button>
+</div>
+
+<!-- Admin Question Bank -->
+<div class="admin" id="adminSection">
+  <div class="row">
+    <div class="col">
+      <label><strong>Question</strong></label>
+      <textarea id="q_text" rows="3" placeholder="Type the question here"></textarea>
+    </div>
+    <div class="col">
+      <label><strong>Option A</strong></label>
+      <input id="opt_a" placeholder="Option A">
+      <label><strong>Option B</strong></label>
+      <input id="opt_b" placeholder="Option B">
+      <label><strong>Option C</strong></label>
+      <input id="opt_c" placeholder="Option C">
+      <label><strong>Option D</strong></label>
+      <input id="opt_d" placeholder="Option D">
+      <label><strong>Correct answer</strong></label>
+      <select id="correct">
+        <option value="">Select correct option</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+        <option value="D">D</option>
+      </select>
+    </div>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+    <button id="saveBtn">Save Question</button>
+    <button id="exportBtn" class="ghost">Export JSON</button>
+    <input id="importFile" type="file" accept="application/json" style="display:none">
+    <button id="importBtn" class="ghost">Import JSON</button>
+    <button id="clearDB" class="ghost">Clear DB</button>
+  </div>
+  <div class="total-count" id="totalCount">Total Questions: 0</div>
+  <div class="list" id="list"></div>
+</div>
+
+<!-- Quiz Generator -->
+<div style="text-align:center;margin:12px">
+  <button id="startBtn">Start Quiz</button>
+</div>
+<div id="timer"></div>
+<div id="quizArea"></div>
+<div style="text-align:center;margin-top:12px">
+  <button id="nextBtn">Next Question</button>
+</div>
+<div id="resultArea"></div>
+
+</div>
+
+<script>
+// ==== Background Particles ====
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W=canvas.width=window.innerWidth;
+let H=canvas.height=window.innerHeight;
+window.addEventListener('resize',()=>{W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;});
+const particles=[];
+for(let i=0;i<80;i++){particles.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*3+1,dx:(Math.random()-0.5)*0.5,dy:(Math.random()-0.5)*0.5});}
+function drawParticles(){ctx.clearRect(0,0,W,H);particles.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.2)';ctx.fill();p.x+=p.dx;p.y+=p.dy;if(p.x<0||p.x>W)p.dx*=-1;if(p.y<0||p.y>H)p.dy*=-1;});requestAnimationFrame(drawParticles);}
+drawParticles();
+
+// ==== IndexedDB Setup ====
+const DB_NAME='edumate_questions_db';
+const STORE='questions';
+let db;
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=e=>{db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});};req.onsuccess=e=>{db=e.target.result;resolve(db);};req.onerror=e=>reject(e);});}
+function getAllQuestions(){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly');const store=tx.objectStore(STORE);const req=store.getAll();req.onsuccess=()=>resolve(req.result);req.onerror=e=>reject(e);});}
+
+// ==== Admin Section ====
+const loginBtn=document.getElementById('loginBtn');
+const adminPassword=document.getElementById('adminPassword');
+const adminSection=document.getElementById('adminSection');
+
+loginBtn.onclick=()=>{
+  if(adminPassword.value==='201015'){ adminSection.style.display='block'; loginBtn.disabled=true; adminPassword.style.display='none'; alert('Admin unlocked!'); } 
+  else alert('Incorrect password');
+};
+
+const qText=document.getElementById('q_text');
+const a=document.getElementById('opt_a'); const b=document.getElementById('opt_b'); const c=document.getElementById('opt_c'); const d=document.getElementById('opt_d'); const correct=document.getElementById('correct');
+const saveBtn=document.getElementById('saveBtn'); const listEl=document.getElementById('list'); const exportBtn=document.getElementById('exportBtn'); const importBtn=document.getElementById('importBtn'); const importFile=document.getElementById('importFile'); const clearDBBtn=document.getElementById('clearDB'); const totalCount=document.getElementById('totalCount');
+let editingId=null;
+
+function resetForm(){qText.value='';a.value='';b.value='';c.value='';d.value='';correct.value='';editingId=null;}
+
+async function refreshList(){listEl.innerHTML='';const items=await getAllQuestions();totalCount.textContent='Total Questions: '+items.length;if(!items.length){listEl.innerHTML='<div class="card">No questions saved yet.</div>';return;}items.forEach(it=>{const card=document.createElement('div');card.className='card';const q=document.createElement('div');q.innerHTML=`<strong>Q${it.id}:</strong> ${it.q}`;const ops=document.createElement('pre');ops.innerHTML=`A: ${it.options[0]}  B: ${it.options[1]}  C: ${it.options[2]}  D: ${it.options[3]} \nCorrect: ${it.answer}`;const actions=document.createElement('div');actions.className='actions';const edit=document.createElement('button');edit.textContent='Edit';edit.className='ghost';edit.onclick=()=>{editingId=it.id;qText.value=it.q;a.value=it.options[0];b.value=it.options[1];c.value=it.options[2];d.value=it.options[3];const idx=['A','B','C','D'].indexOf(it.answer);correct.value=idx>=0?['A','B','C','D'][idx]:'';window.scrollTo({top:0,behavior:'smooth'});};const del=document.createElement('button');del.textContent='Delete';del.onclick=async()=>{if(confirm('Delete this question?')){const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(it.id);tx.oncomplete=()=>refreshList();}};actions.appendChild(edit);actions.appendChild(del);card.appendChild(q);card.appendChild(ops);card.appendChild(actions);listEl.appendChild(card);});}
+
+saveBtn.addEventListener('click',async()=>{await openDB();const Q=qText.value.trim();const opts=[a.value.trim(),b.value.trim(),c.value.trim(),d.value.trim()];const corr=correct.value;if(!Q||opts.some(x=>!x)||!corr){alert('Please fill question, all 4 options and select correct option.');return;}const answerIndex={'A':0,'B':1,'C':2,'D':3}[corr];const obj={q:Q,options:opts,answer:opts[answerIndex]};const tx=db.transaction(STORE,'readwrite');if(editingId){obj.id=editingId;tx.objectStore(STORE).put(obj);}else{tx.objectStore(STORE).add(obj);}tx.oncomplete=()=>{resetForm();refreshList();};});
+
+exportBtn.addEventListener('click',async()=>{await openDB();const items=await getAllQuestions();const blob=new Blob([JSON.stringify(items,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const aEl=document.createElement('a');aEl.href=url;aEl.download='edumate_questions.json';aEl.click();URL.revokeObjectURL(url);});
+
+importBtn.addEventListener('click',()=>importFile.click());
+importFile.addEventListener('change',async(e)=>{const file=e.target.files[0];if(!file)return;const txt=await file.text();try{const data=JSON.parse(txt);if(!Array.isArray(data))throw new Error('Invalid file');await openDB();for(const it of data){if(it.q&&Array.isArray(it.options)&&it.options.length===4&&it.answer){db.transaction(STORE,'readwrite').objectStore(STORE).add({q:it.q,options:it.options,answer:it.answer});}}refreshList();importFile.value='';alert('Import complete');}catch(err){alert('Import failed: '+err.message);}});
+
+clearDBBtn.addEventListener('click',async()=>{if(confirm('Clear all questions from DB? This cannot be undone.')){await openDB();db.transaction(STORE,'readwrite').objectStore(STORE).clear().oncomplete=()=>refreshList();alert('DB cleared');}});
+
+// ==== Quiz Section ====
+let currentIndex=0,quizQuestions=[],answers=[],timerInterval,timePerQuestion=25;
+const startBtn=document.getElementById('startBtn');
+const nextBtn=document.getElementById('nextBtn');
+const timerEl=document.getElementById('timer');
+const quizArea=document.getElementById('quizArea');
+const resultArea=document.getElementById('resultArea');
+
+function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;}
+function speakQuestion(text){if('speechSynthesis' in window){const utter=new SpeechSynthesisUtterance(text);window.speechSynthesis.speak(utter);}}
+function startTimer(callback){let timeLeft=timePerQuestion;timerEl.textContent=`Time: ${timeLeft}s`;timerInterval=setInterval(()=>{timeLeft--;timerEl.textContent=`Time: ${timeLeft}s`;if(timeLeft<=5&&timeLeft>0){const audio=new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');audio.play();timerEl.style.color='#f87171';}else timerEl.style.color='#ffeb3b';if(timeLeft<=0){clearInterval(timerInterval);callback();}},1000);}
+function showQuestion(idx){quizArea.innerHTML='';if(idx>=quizQuestions.length){showResults();return;}const q=quizQuestions[idx];const card=document.createElement('div');card.className='card';const qEl=document.createElement('div');qEl.className='question';qEl.textContent=`${idx+1}. ${q.q}`;card.appendChild(qEl);const ops=document.createElement('div');ops.className='options';q.options.forEach(opt=>{const btn=document.createElement('button');btn.textContent=opt;btn.onclick=()=>{answers[idx]=opt;Array.from(ops.children).forEach(ch=>ch.classList.remove('selected'));btn.classList.add('selected');};ops.appendChild(btn);});card.appendChild(ops);quizArea.appendChild(card);speakQuestion(q.q);startTimer(()=>nextQuestion());}
+function nextQuestion(){clearInterval(timerInterval);currentIndex++;if(currentIndex<quizQuestions.length){showQuestion(currentIndex);}else{showResults();}}
+function showResults(){let score=0;const details=[];quizQuestions.forEach((q,i)=>{const user=answers[i];const correct=q.answer;if(user===correct)score++;details.push({q:q.q,correct,user:user||'No answer',ok:user===correct});});const percent=Math.round((score/quizQuestions.length)*100);let feedback='';if(percent>=70)feedback='Brilliant! 🌟';else if(percent>=45)feedback='Great job! 👍';else feedback='Try harder — never give up! 💪';const res=resultArea;res.innerHTML='';const summary=document.createElement('div');summary.className='results';summary.innerHTML=`<strong>Score:</strong> ${score}/${quizQuestions.length} (${percent}%)<br><strong>${feedback}</strong>`;res.appendChild(summary);const detailCard=document.createElement('div');detailCard.style.marginTop='12px';details.forEach(d=>{const line=document.createElement('div');line.style.padding='8px';line.style.borderBottom='1px solid rgba(255,255,255,0.04)';line.innerHTML=`<strong>Q:</strong> ${d.q}<br>Your: <span style="color:${d.ok?'#6ee7b7':'#ff9b9b'}">${d.user}</span> — Correct: <strong>${d.correct}</strong>`;detailCard.appendChild(line);});res.appendChild(detailCard);nextBtn.style.display='none';}
+
+startBtn.onclick=async()=>{startBtn.style.display='none';await openDB();const storedQuestions=await getAllQuestions();if(!storedQuestions.length){alert('No questions in DB! Add questions first.');startBtn.style.display='inline-block';return;}quizQuestions=shuffle(storedQuestions).slice(0,20);quizQuestions.forEach(q=>q.options=shuffle(q.options));answers=new Array(quizQuestions.length).fill(null);currentIndex=0;showQuestion(currentIndex);nextBtn.style.display='inline-block';};
+nextBtn.onclick=nextQuestion;
+</script>
+</body>
+</html>
