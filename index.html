@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>EduMate — Quiz Generator</title>
+<style>
+body {
+  font-family: 'Inter', system-ui, Arial;
+  margin: 0;
+  background: linear-gradient(120deg,#0f172a,#1e3a8a);
+  color: #fff;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+canvas#bgCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: -1;
+}
+header {
+  background: transparent;
+  padding: 18px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 22px;
+}
+.wrap {
+  max-width: 980px;
+  margin: 12px auto;
+  padding: 18px;
+}
+button {
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+button#startBtn { background: #10b981; color: #fff; }
+button#nextBtn { background: #3b82f6; color: #fff; display: none; }
+.card {
+  background: rgba(255,255,255,0.06);
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 16px;
+  box-shadow: 0 10px 30px rgba(2,6,23,0.5);
+}
+.question { font-weight: 800; margin-bottom: 10px; }
+.options button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+}
+.options button.selected { outline: 3px solid rgba(16,185,129,0.6); }
+#timer { text-align: center; font-size: 18px; margin: 10px; color: #ffeb3b; }
+.results { background: rgba(255,255,255,0.06); padding: 14px; border-radius: 10px; margin-top: 12px; }
+#resultArea div { margin-top: 8px; }
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<header>EduMate — Quiz Generator</header>
+<div class="wrap">
+  <div style="text-align:center;margin:12px">
+    <button id="startBtn">Start Quiz</button>
+  </div>
+  <div id="timer"></div>
+  <div id="quizArea"></div>
+  <div style="text-align:center;margin-top:12px">
+    <button id="nextBtn">Next Question</button>
+  </div>
+  <div id="resultArea"></div>
+</div>
+
+<script>
+// ==== Background Particles ====
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+window.addEventListener('resize', ()=>{ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; });
+
+const particles = [];
+for(let i=0;i<80;i++){
+  particles.push({x:Math.random()*W, y:Math.random()*H, r:Math.random()*3+1, dx:(Math.random()-0.5)*0.5, dy:(Math.random()-0.5)*0.5});
+}
+function drawParticles(){
+  ctx.clearRect(0,0,W,H);
+  particles.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.2)';
+    ctx.fill();
+    p.x+=p.dx; p.y+=p.dy;
+    if(p.x<0||p.x>W) p.dx*=-1;
+    if(p.y<0||p.y>H) p.dy*=-1;
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// ==== IndexedDB Setup ====
+const DB_NAME = 'edumate_questions_db';
+const STORE = 'questions';
+let db;
+
+function openDB() {
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME,1);
+    req.onupgradeneeded = e=>{
+      db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id', autoIncrement:true});
+    };
+    req.onsuccess = e=>{ db=e.target.result; resolve(db); };
+    req.onerror = e=>reject(e);
+  });
+}
+
+function getAllQuestions() {
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,'readonly');
+    const store = tx.objectStore(STORE);
+    const req = store.getAll();
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = e=>reject(e);
+  });
+}
+
+// ==== Quiz System ====
+let currentIndex = 0;
+let quizQuestions = [];
+let answers = [];
+let timerInterval;
+const timePerQuestion = 25;
+
+const startBtn = document.getElementById('startBtn');
+const nextBtn = document.getElementById('nextBtn');
+const timerEl = document.getElementById('timer');
+const quizArea = document.getElementById('quizArea');
+const resultArea = document.getElementById('resultArea');
+
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+
+function speakQuestion(text){
+  if('speechSynthesis' in window){
+    const utter = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+function startTimer(callback){
+  let timeLeft = timePerQuestion;
+  timerEl.textContent = `Time: ${timeLeft}s`;
+  timerInterval = setInterval(()=>{
+    timeLeft--;
+    timerEl.textContent = `Time: ${timeLeft}s`;
+    if(timeLeft<=5 && timeLeft>0){
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+      audio.play();
+      timerEl.style.color = '#f87171';
+    } else timerEl.style.color = '#ffeb3b';
+    if(timeLeft<=0){
+      clearInterval(timerInterval);
+      callback();
+    }
+  },1000);
+}
+
+function showQuestion(idx){
+  quizArea.innerHTML = '';
+  if(idx>=quizQuestions.length){ showResults(); return; }
+  const q = quizQuestions[idx];
+  const card = document.createElement('div'); card.className='card';
+  const qEl = document.createElement('div'); qEl.className='question'; qEl.textContent = `${idx+1}. ${q.q}`;
+  card.appendChild(qEl);
+  const ops = document.createElement('div'); ops.className='options';
+  q.options.forEach(opt=>{
+    const btn = document.createElement('button'); btn.textContent=opt;
+    btn.onclick = ()=> { answers[idx]=opt; Array.from(ops.children).forEach(ch=>ch.classList.remove('selected')); btn.classList.add('selected'); };
+    ops.appendChild(btn);
+  });
+  card.appendChild(ops);
+  quizArea.appendChild(card);
+  speakQuestion(q.q);
+  startTimer(()=>nextQuestion());
+}
+
+function nextQuestion(){
+  clearInterval(timerInterval);
+  currentIndex++;
+  if(currentIndex<quizQuestions.length){ showQuestion(currentIndex); } else { showResults(); }
+}
+
+function showResults(){
+  let score=0;
+  const details=[];
+  quizQuestions.forEach((q,i)=>{
+    const user = answers[i];
+    const correct = q.answer;
+    if(user===correct) score++;
+    details.push({q:q.q, correct, user:user||'No answer', ok:user===correct});
+  });
+  const percent = Math.round((score/quizQuestions.length)*100);
+  let feedback='';
+  if(percent>=70) feedback='Brilliant! 🌟';
+  else if(percent>=45) feedback='Great job! 👍';
+  else feedback='Try harder — never give up! 💪';
+  const res = resultArea; res.innerHTML='';
+  const summary=document.createElement('div'); summary.className='results';
+  summary.innerHTML=`<strong>Score:</strong> ${score}/${quizQuestions.length} (${percent}%)<br><strong>${feedback}</strong>`;
+  res.appendChild(summary);
+  const detailCard=document.createElement('div'); detailCard.style.marginTop='12px';
+  details.forEach(d=>{
+    const line=document.createElement('div'); line.style.padding='8px'; line.style.borderBottom='1px solid rgba(255,255,255,0.04)';
+    line.innerHTML=`<strong>Q:</strong> ${d.q}<br>Your: <span style="color:${d.ok?'#6ee7b7':'#ff9b9b'}">${d.user}</span> — Correct: <strong>${d.correct}</strong>`;
+    detailCard.appendChild(line);
+  });
+  res.appendChild(detailCard);
+  nextBtn.style.display='none';
+}
+
+// ==== Start Quiz ====
+startBtn.onclick=async ()=>{
+  startBtn.style.display='none';
+  await openDB();
+  const storedQuestions = await getAllQuestions();
+  if(!storedQuestions.length){
+    alert('No questions in DB! Add questions first.');
+    startBtn.style.display='inline-block';
+    return;
+  }
+  quizQuestions=shuffle(storedQuestions).slice(0,20);
+  quizQuestions.forEach(q=>q.options=shuffle(q.options));
+  answers=new Array(quizQuestions.length).fill(null);
+  currentIndex=0;
+  showQuestion(currentIndex);
+  nextBtn.style.display='inline-block';
+};
+nextBtn.onclick=nextQuestion;
+</script>
+</body>
+</html>
