@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Question Bank — EduMate</title>
+<style>
+  body{
+    font-family:Inter,system-ui,Arial;
+    margin:0;
+    background: linear-gradient(120deg,#0f172a,#1e3a8a);
+    color:#fff;
+    min-height:100vh;
+  }
+  header{
+    background:transparent;
+    padding:16px;
+    text-align:center;
+    font-weight:800;
+    font-size:22px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .wrap{
+    max-width:980px;
+    margin:18px auto;
+    padding:18px;
+  }
+  .row{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  input,textarea,select{
+    width:100%;
+    padding:8px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05);
+    color:#fff;
+  }
+  input::placeholder, textarea::placeholder {
+    color: rgba(255,255,255,0.5);
+  }
+  .col{flex:1 1 300px; min-width:240px}
+  button{
+    background:#06b6d4;
+    color:#04263b;
+    border:none;
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  button.ghost{
+    background:transparent;
+    color:#9fb4d8;
+    border:1px solid rgba(255,255,255,0.2);
+  }
+  .list{
+    margin-top:18px;
+    max-height:450px;
+    overflow-y:auto;
+    padding-right:6px;
+  }
+  .card{
+    background:rgba(255,255,255,0.05);
+    padding:12px;
+    border-radius:10px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.4);
+    margin-bottom:10px;
+  }
+  .actions{
+    display:flex;
+    gap:8px;
+    margin-top:8px;
+  }
+  pre{
+    white-space:pre-wrap;
+    word-break:break-word;
+    color:#cfefff;
+  }
+  .total-count{
+    text-align:right;
+    margin-bottom:8px;
+    font-weight:700;
+    color:#06b6d4;
+  }
+</style>
+</head>
+<body>
+<header>EduMate — Question Bank</header>
+<div class="wrap">
+  <div class="row">
+    <div class="col">
+      <label><strong>Question</strong></label>
+      <textarea id="q_text" rows="3" placeholder="Type the question here"></textarea>
+    </div>
+    <div class="col">
+      <label><strong>Option A</strong></label>
+      <input id="opt_a" placeholder="Option A">
+      <label><strong>Option B</strong></label>
+      <input id="opt_b" placeholder="Option B">
+      <label><strong>Option C</strong></label>
+      <input id="opt_c" placeholder="Option C">
+      <label><strong>Option D</strong></label>
+      <input id="opt_d" placeholder="Option D">
+      <label><strong>Correct answer</strong></label>
+      <select id="correct">
+        <option value="">Select correct option</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+        <option value="D">D</option>
+      </select>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+    <button id="saveBtn">Save Question</button>
+    <button id="exportBtn" class="ghost">Export JSON</button>
+    <input id="importFile" type="file" accept="application/json" style="display:none">
+    <button id="importBtn" class="ghost">Import JSON</button>
+    <button id="clearDB" class="ghost">Clear DB</button>
+  </div>
+
+  <div class="total-count" id="totalCount">Total Questions: 0</div>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+const DB_NAME = 'edumate_questions_db';
+const STORE = 'questions';
+let db;
+let editingId = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath:'id', autoIncrement:true });
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = e => reject(e);
+  });
+}
+
+function addQuestion(obj) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).add(obj);
+    tx.oncomplete = () => res();
+    tx.onerror = e => rej(e);
+  });
+}
+
+function putQuestion(obj) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).put(obj);
+    tx.oncomplete = () => res();
+    tx.onerror = e => rej(e);
+  });
+}
+
+function deleteQuestion(id) {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror = e => rej(e);
+  });
+}
+
+function getAll() {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE,'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => res(req.result);
+    req.onerror = e => rej(e);
+  });
+}
+
+function clearDB() {
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE,'readwrite');
+    tx.objectStore(STORE).clear();
+    tx.oncomplete = () => res();
+    tx.onerror = e => rej(e);
+  });
+}
+
+const qText = document.getElementById('q_text');
+const a = document.getElementById('opt_a');
+const b = document.getElementById('opt_b');
+const c = document.getElementById('opt_c');
+const d = document.getElementById('opt_d');
+const correct = document.getElementById('correct');
+const saveBtn = document.getElementById('saveBtn');
+const listEl = document.getElementById('list');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFile = document.getElementById('importFile');
+const clearDBBtn = document.getElementById('clearDB');
+const totalCount = document.getElementById('totalCount');
+
+function resetForm(){
+  qText.value=''; a.value=''; b.value=''; c.value=''; d.value=''; correct.value='';
+  editingId = null;
+}
+
+async function refreshList(){
+  listEl.innerHTML = '';
+  const items = await getAll();
+  totalCount.textContent = 'Total Questions: '+items.length;
+  if(!items.length){ listEl.innerHTML = '<div class="card">No questions saved yet.</div>'; return; }
+  items.forEach(it=>{
+    const card = document.createElement('div'); card.className='card';
+    const q = document.createElement('div'); q.innerHTML = `<strong>Q${it.id}:</strong> ${it.q}`;
+    const ops = document.createElement('pre');
+    ops.innerHTML = `A: ${it.options[0]}  B: ${it.options[1]}  C: ${it.options[2]}  D: ${it.options[3]} \nCorrect: ${it.answer}`;
+    const actions = document.createElement('div'); actions.className='actions';
+    const edit = document.createElement('button'); edit.textContent='Edit'; edit.className='ghost';
+    edit.onclick = ()=> {
+      editingId = it.id;
+      qText.value = it.q; a.value = it.options[0]; b.value = it.options[1]; c.value = it.options[2]; d.value = it.options[3];
+      const idx = ['A','B','C','D'].indexOf(it.answer);
+      correct.value = idx>=0 ? ['A','B','C','D'][idx] : '';
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+    const del = document.createElement('button'); del.textContent='Delete';
+    del.onclick = async ()=>{ if(confirm('Delete this question?')){ await deleteQuestion(it.id); refreshList(); } };
+    actions.appendChild(edit); actions.appendChild(del);
+    card.appendChild(q); card.appendChild(ops); card.appendChild(actions);
+    listEl.appendChild(card);
+  });
+}
+
+saveBtn.addEventListener('click', async ()=>{
+  const Q = qText.value.trim();
+  const opts = [a.value.trim(), b.value.trim(), c.value.trim(), d.value.trim()];
+  const corr = correct.value;
+  if(!Q || opts.some(x=>!x) || !corr){ alert('Please fill question, all 4 options and select correct option.'); return; }
+  const answerIndex = {'A':0,'B':1,'C':2,'D':3}[corr];
+  const obj = { q: Q, options: opts, answer: opts[answerIndex] };
+  if(editingId){ obj.id = editingId; await putQuestion(obj); } 
+  else { await addQuestion(obj); }
+  resetForm();
+  await refreshList();
+});
+
+exportBtn.addEventListener('click', async ()=>{
+  const items = await getAll();
+  const dataStr = JSON.stringify(items, null, 2);
+  const blob = new Blob([dataStr], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const aEl = document.createElement('a'); aEl.href = url; aEl.download = 'edumate_questions.json'; aEl.click();
+  URL.revokeObjectURL(url);
+});
+
+importBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const txt = await file.text();
+  try {
+    const data = JSON.parse(txt);
+    if(!Array.isArray(data)) throw new Error('Invalid file');
+    for(const it of data){
+      if(it.q && Array.isArray(it.options) && it.options.length===4 && it.answer){
+        await addQuestion({ q: it.q, options: it.options, answer: it.answer });
+      }
+    }
+    await refreshList();
+    importFile.value = '';
+    alert('Import complete');
+  } catch(err){ alert('Import failed: ' + err.message); }
+});
+
+clearDBBtn.addEventListener('click', async ()=>{
+  if(confirm('Clear all questions from DB? This cannot be undone.')){ await clearDB(); await refreshList(); alert('DB cleared'); }
+});
+
+window.addEventListener('load', async ()=>{
+  await openDB(); await refreshList();
+});
+</script>
+</body>
+  </html>
