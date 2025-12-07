@@ -9,8 +9,9 @@
   * { margin:0; padding:0; box-sizing:border-box; font-family:'Roboto', sans-serif;}
   body, html { height:100%; overflow:hidden; }
 
+  /* Clean, cool-toned gradient background */
   body { 
-    background: linear-gradient(135deg, #1e3c72, #2a5298); /* clean, cool blue gradient */
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
     color:#fff; display:flex; justify-content:center; align-items:center; flex-direction:column;
   }
 
@@ -25,6 +26,7 @@
   }
   .start-button:hover { transform:translateX(-50%) scale(1.05); }
 
+  /* Quiz Section */
   #quizSection { display:none; text-align:center; width:100%; max-width:600px; padding:20px; }
   h2 { margin-bottom:20px; }
   ul.options { list-style:none; padding:0; }
@@ -71,7 +73,7 @@ function typeEffect(){
 typeEffect();
 
 // ==== Quiz Logic ====
-let questions=[], currentQuestion=0, score=0, userAnswers=[];
+let quizQuestions=[], currentQuestion=0, score=0;
 const landing = document.getElementById('landing');
 const quizSection = document.getElementById('quizSection');
 const questionEl = document.getElementById('question');
@@ -86,24 +88,34 @@ startQuizBtn.onclick = async () => {
   landing.style.display = 'none';
   startQuizBtn.style.display = 'none';
   quizSection.style.display = 'block';
-  await loadQuestions();
-  loadQuestion();
+  await startQuiz();
 };
 
-async function loadQuestions(){
-  try{
-    const res = await fetch('questions.json');
+async function startQuiz(){
+  currentQuestion=0; score=0;
+  scoreContainer.style.display='none';
+  questionEl.style.display='block';
+  optionsEl.style.display='block';
+
+  try {
+    const res = await fetch('questions.json'); // JSON file in same folder
     const data = await res.json();
-    // Shuffle and take 20 questions
-    questions = data.sort(() => Math.random()-0.5).slice(0, 20);
-  } catch(err){ alert("Error loading questions!"); console.error(err);}
+    // Shuffle all questions and pick first 20
+    quizQuestions = data.sort(() => Math.random() - 0.5).slice(0, 20);
+  } catch(err){
+    alert("Error loading questions!");
+    console.error(err);
+    return;
+  }
+
+  loadQuestion();
 }
 
 function loadQuestion(){
-  const q = questions[currentQuestion];
+  const q = quizQuestions[currentQuestion];
   questionEl.textContent = q.q;
   optionsEl.innerHTML='';
-  const shuffledOptions = q.options.sort(() => Math.random()-0.5);
+  const shuffledOptions = q.options.sort(() => Math.random() - 0.5);
   shuffledOptions.forEach(option=>{
     const li = document.createElement('li');
     li.textContent = option;
@@ -113,21 +125,10 @@ function loadQuestion(){
 }
 
 function selectOption(selected){
-  userAnswers.push({ 
-    question: questions[currentQuestion].q, 
-    selected: selected, 
-    correct: questions[currentQuestion].answer 
-  });
-
-  if(selected === questions[currentQuestion].answer) score++;
+  if(selected === quizQuestions[currentQuestion].answer) score++;
   currentQuestion++;
-
-  if(currentQuestion < questions.length){ 
-    loadQuestion(); 
-  } else { 
-    showScore(); 
-    showReview(); 
-  }
+  if(currentQuestion < quizQuestions.length) loadQuestion();
+  else showScore();
 }
 
 function showScore(){
@@ -135,36 +136,11 @@ function showScore(){
   optionsEl.style.display='none';
   scoreContainer.style.display='block';
   scoreEl.textContent = score;
-  totalEl.textContent = questions.length;
-}
-
-function showReview(){
-  const reviewDiv = document.createElement('div');
-  reviewDiv.style.marginTop = '30px';
-  reviewDiv.style.textAlign = 'left';
-  reviewDiv.innerHTML = '<h3>Answer Review:</h3>';
-  
-  userAnswers.forEach((ans, i)=>{
-    const qDiv = document.createElement('div');
-    qDiv.style.marginBottom = '15px';
-    qDiv.innerHTML = `
-      <strong>Q${i+1}: ${ans.question}</strong><br>
-      Your Answer: <span style="color:${ans.selected===ans.correct?'#10b981':'#ff4d4f'}">${ans.selected}</span><br>
-      Correct Answer: <span style="color:#10b981">${ans.correct}</span>
-    `;
-    reviewDiv.appendChild(qDiv);
-  });
-
-  scoreContainer.appendChild(reviewDiv);
+  totalEl.textContent = quizQuestions.length;
 }
 
 playAgainBtn.onclick = () => {
-  currentQuestion=0; score=0; userAnswers=[];
-  scoreContainer.style.display='none';
-  questionEl.style.display='block';
-  optionsEl.style.display='block';
-  scoreContainer.innerHTML = '<h2>Your Score: <span id="score">0</span> / <span id="total"></span></h2><button class="start-button" id="playAgainBtn">Play Again</button>';
-  loadQuestion();
+  startQuiz();
 };
 </script>
 </body>
