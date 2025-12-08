@@ -6,13 +6,25 @@
 <title>EduMateAI Quiz</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; font-family:'Roboto', sans-serif;}
-  body, html { height:100%; overflow:hidden; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Roboto', sans-serif; }
+  html, body { height:100%; overflow:hidden; }
 
-  /* Clean, cool-toned gradient background */
-  body { 
-    background: linear-gradient(135deg, #1e3c72, #2a5298);
-    color:#fff; display:flex; justify-content:center; align-items:center; flex-direction:column;
+  /* Live gradient background loved universally */
+  body {
+    background: linear-gradient(-45deg, #1e3c72, #2a5298, #6dd5fa, #2980b9);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    color:#fff;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+  }
+
+  @keyframes gradientBG {
+    0% { background-position:0% 50%; }
+    50% { background-position:100% 50%; }
+    100% { background-position:0% 50%; }
   }
 
   .container { text-align:center; flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; }
@@ -31,7 +43,7 @@
   h2 { margin-bottom:20px; }
   ul.options { list-style:none; padding:0; }
   ul.options li {
-    background:#1e1e1e; margin:10px 0; padding:15px; border-radius:10px; cursor:pointer;
+    background:rgba(0,0,0,0.4); margin:10px 0; padding:15px; border-radius:10px; cursor:pointer;
     transition: all 0.3s ease;
   }
   ul.options li:hover { background:#28a745; transform:scale(1.02); }
@@ -73,7 +85,7 @@ function typeEffect(){
 typeEffect();
 
 // ==== Quiz Logic ====
-let quizQuestions=[], currentQuestion=0, score=0;
+let questions=[], currentQuestion=0, score=0;
 const landing = document.getElementById('landing');
 const quizSection = document.getElementById('quizSection');
 const questionEl = document.getElementById('question');
@@ -88,34 +100,23 @@ startQuizBtn.onclick = async () => {
   landing.style.display = 'none';
   startQuizBtn.style.display = 'none';
   quizSection.style.display = 'block';
-  await startQuiz();
+  await loadQuestions();
+  loadQuestion();
 };
 
-async function startQuiz(){
-  currentQuestion=0; score=0;
-  scoreContainer.style.display='none';
-  questionEl.style.display='block';
-  optionsEl.style.display='block';
-
-  try {
-    const res = await fetch('questions.json'); // JSON file in same folder
+async function loadQuestions(){
+  try{
+    const res = await fetch('/api/getQuestions');
     const data = await res.json();
-    // Shuffle all questions and pick first 20
-    quizQuestions = data.sort(() => Math.random() - 0.5).slice(0, 20);
-  } catch(err){
-    alert("Error loading questions!");
-    console.error(err);
-    return;
-  }
-
-  loadQuestion();
+    questions = data.sort(() => Math.random()-0.5);
+  } catch(err){ alert("Error loading questions!"); console.error(err);}
 }
 
 function loadQuestion(){
-  const q = quizQuestions[currentQuestion];
+  const q = questions[currentQuestion];
   questionEl.textContent = q.q;
   optionsEl.innerHTML='';
-  const shuffledOptions = q.options.sort(() => Math.random() - 0.5);
+  const shuffledOptions = q.options.sort(() => Math.random()-0.5);
   shuffledOptions.forEach(option=>{
     const li = document.createElement('li');
     li.textContent = option;
@@ -125,10 +126,10 @@ function loadQuestion(){
 }
 
 function selectOption(selected){
-  if(selected === quizQuestions[currentQuestion].answer) score++;
+  if(selected === questions[currentQuestion].answer) score++;
   currentQuestion++;
-  if(currentQuestion < quizQuestions.length) loadQuestion();
-  else showScore();
+  if(currentQuestion < questions.length){ loadQuestion(); }
+  else{ showScore(); }
 }
 
 function showScore(){
@@ -136,11 +137,15 @@ function showScore(){
   optionsEl.style.display='none';
   scoreContainer.style.display='block';
   scoreEl.textContent = score;
-  totalEl.textContent = quizQuestions.length;
+  totalEl.textContent = questions.length;
 }
 
 playAgainBtn.onclick = () => {
-  startQuiz();
+  currentQuestion=0; score=0;
+  scoreContainer.style.display='none';
+  questionEl.style.display='block';
+  optionsEl.style.display='block';
+  loadQuestion();
 };
 </script>
 </body>
