@@ -1,6 +1,84 @@
-import questions from '../data/questions.json';
-
 export default function handler(req, res) {
-  const shuffled = questions.sort(() => Math.random() - 0.5);
-  res.status(200).json(shuffled);
-}
+  const questions = [
+    { q: "What is the capital of France?", options: ["Paris", "London", "Berlin", "Madrid"], answer: "Paris" },
+    { q: "Which planet is known as the Red Planet?", options: ["Mars", "Venus", "Jupiter", "Saturn"], answer: "Mars" },
+    { q: "Who wrote 'Romeo and Juliet'?", options: ["William Shakespeare", "Mark Twain", "Jane Austen", "Charles Dickens"], answer: "William Shakespeare" },
+    { q: "What is the largest ocean on Earth?", options: ["Pacific", "Atlantic", "Indian", "Arctic"], answer: "Pacific" },
+    { q: "Which country has the largest population?", options: ["China", "India", "USA", "Russia"], answer: "China" },
+    { q: "What is the chemical symbol for water?", options: ["H2O", "CO2", "O2", "NaCl"], answer: "H2O" },
+    { q: "Which is the tallest mountain in the world?", options: ["Mount Everest", "K2", "Kangchenjunga", "Makalu"], answer: "Mount Everest" },
+    { q: "Who painted the Mona Lisa?", options: ["Leonardo da Vinci", "Vincent van Gogh", "Pablo Picasso", "Claude Monet"], answer: "Leonardo da Vinci" },
+    { q: "What is the largest planet in our solar system?", options: ["Jupiter", "Saturn", "Earth", "Neptune"], answer: "Jupiter" },
+    { q: "Which organ pumps blood throughout the body?", options: ["Heart", "Lungs", "Kidney", "Liver"], answer: "Heart" },
+
+    { q: "What is the smallest prime number?", options: ["2", "1", "3", "5"], answer: "2" },
+    { q: "Which continent is Africa located in?", options: ["Africa", "Asia", "Europe", "Australia"], answer: "Africa" },
+    { q: "What is the freezing point of water in Celsius?", options: ["0", "32", "-1", "100"], answer: "0" },
+    { q: "Which element has the symbol 'O'?", options: ["Oxygen", "Gold", "Iron", "Zinc"], answer: "Oxygen" },
+    { q: "Which gas do plants absorb to make food?", options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Hydrogen"], answer: "Carbon Dioxide" },
+    { q: "Who discovered gravity after an apple fell?", options: ["Isaac Newton", "Albert Einstein", "Galileo Galilei", "Nikola Tesla"], answer: "Isaac Newton" },
+    { q: "Which country is famous for the pyramids?", options: ["Egypt", "Mexico", "Peru", "Iraq"], answer: "Egypt" },
+    { q: "Which vitamin is produced when exposed to sunlight?", options: ["Vitamin D", "Vitamin C", "Vitamin A", "Vitamin B12"], answer: "Vitamin D" },
+    { q: "Which is the fastest land animal?", options: ["Cheetah", "Lion", "Tiger", "Leopard"], answer: "Cheetah" },
+    { q: "What is the currency of Japan?", options: ["Yen", "Dollar", "Euro", "Peso"], answer: "Yen" },
+
+    { q: "Which country gifted the Statue of Liberty to the USA?", options: ["France", "England", "Spain", "Italy"], answer: "France" },
+    { q: "Who is known as the Father of Computers?", options: ["Charles Babbage", "Alan Turing", "Steve Jobs", "Bill Gates"], answer: "Charles Babbage" },
+    { q: "Which ocean is the largest?", options: ["Pacific", "Atlantic", "Indian", "Arctic"], answer: "Pacific" },
+    { q: "Which city hosted the 2016 Olympics?", options: ["Brazil", "China", "UK", "Russia"], answer: "Brazil" },
+    { q: "What is the main language spoken in Brazil?", options: ["Portuguese", "Spanish", "French", "English"], answer: "Portuguese" },
+    { q: "Which animal is known as the Ship of the Desert?", options: ["Camel", "Horse", "Elephant", "Donkey"], answer: "Camel" },
+    { q: "Which metal is liquid at room temperature?", options: ["Mercury", "Gold", "Silver", "Iron"], answer: "Mercury" },
+    { q: "Who invented the light bulb?", options: ["Thomas Edison", "Nikola Tesla", "Alexander Graham Bell", "Benjamin Franklin"], answer: "Thomas Edison" },
+    { q: "Which country is known for sushi?", options: ["Japan", "China", "Thailand", "Korea"], answer: "Japan" },
+    { q: "Which organ filters blood in the human body?", options: ["Kidney", "Liver", "Heart", "Lungs"], answer: "Kidney" },
+
+    { q: "Which is the fastest bird?", options: ["Peregrine Falcon", "Eagle", "Hawk", "Falcon"], answer: "Peregrine Falcon" },
+    { q: "What is the powerhouse of the cell?", options: ["Mitochondria", "Nucleus", "Ribosome", "Chloroplast"], answer: "Mitochondria" },
+    { q: "Which gas do humans exhale?", options: ["Carbon Dioxide", "Oxygen", "Nitrogen", "Hydrogen"], answer: "Carbon Dioxide" },
+    { q: "Which country has the Great Wall?", options: ["China", "India", "Mongolia", "Russia"], answer: "China" },
+    { q: "Which city is famous for the Colosseum?", options: ["Rome", "Athens", "Istanbul", "Cairo"], answer: "Rome" },
+    { q: "Which is the smallest bone in the human body?", options: ["Stapes", "Femur", "Tibia", "Humerus"], answer: "Stapes" },
+    { q: "Who painted 'Starry Night'?", options: ["Vincent van Gogh", "Pablo Picasso", "Claude Monet", "Leonardo da Vinci"], answer: "Vincent van Gogh" },
+    { q: "What is the tallest mountain in Africa?", options: ["Mount Kilimanjaro", "Mount Kenya", "Mount Elgon", "Atlas Mountains"], answer: "Mount Kilimanjaro" },
+    { q: "Which animal is the largest mammal?", options: ["Blue Whale", "Elephant", "Giraffe", "Hippopotamus"], answer: "Blue Whale" },
+    { q: "Which country is known as the Land of the Rising Sun?", options: ["Japan", "China", "South Korea", "Thailand"], answer: "Japan" },
+
+    { q: "Who discovered penicillin?", options: ["Alexander Fleming", "Louis Pasteur", "Marie Curie", "Gregor Mendel"], answer: "Alexander Fleming" },
+    { q: "Which vitamin is essential for blood clotting?", options: ["Vitamin K", "Vitamin D", "Vitamin C", "Vitamin B12"], answer: "Vitamin K" },
+    { q: "Which continent is the largest by land area?", options: ["Asia", "Africa", "Europe", "North America"], answer: "Asia" },
+    { q: "Which is the smallest country in the world?", options: ["Vatican City", "Monaco", "San Marino", "Liechtenstein"], answer: "Vatican City" },
+    { q: "Which planet is known as the Morning Star?", options: ["Venus", "Mars", "Mercury", "Jupiter"], answer: "Venus" },
+    { q: "Which is the largest desert in the world?", options: ["Sahara", "Gobi", "Kalahari", "Arabian"], answer: "Sahara" },
+    { q: "Who invented the telephone?", options: ["Alexander Graham Bell", "Thomas Edison", "Nikola Tesla", "James Watt"], answer: "Alexander Graham Bell" },
+    { q: "Which is the fastest marine animal?", options: ["Sailfish", "Shark", "Dolphin", "Tuna"], answer: "Sailfish" },
+    { q: "What is the capital of Australia?", options: ["Canberra", "Sydney", "Melbourne", "Perth"], answer: "Canberra" },
+    { q: "Which blood type is known as the universal donor?", options: ["O-", "AB+", "A+", "B-"], answer: "O-" },
+
+    { q: "Which instrument is used to measure temperature?", options: ["Thermometer", "Barometer", "Hygrometer", "Anemometer"], answer: "Thermometer" },
+    { q: "Which famous scientist developed the theory of relativity?", options: ["Albert Einstein", "Isaac Newton", "Nikola Tesla", "Galileo Galilei"], answer: "Albert Einstein" },
+    { q: "What is the main gas in Earth's atmosphere?", options: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Hydrogen"], answer: "Nitrogen" },
+    { q: "Which country is known for the Eiffel Tower?", options: ["France", "Italy", "USA", "Spain"], answer: "France" },
+    { q: "Which city is known as the Big Apple?", options: ["New York", "Los Angeles", "Chicago", "Miami"], answer: "New York" },
+    { q: "Who is the author of 'Harry Potter'?", options: ["J.K. Rowling", "J.R.R. Tolkien", "C.S. Lewis", "George R.R. Martin"], answer: "J.K. Rowling" },
+    { q: "Which planet has rings?", options: ["Saturn", "Jupiter", "Mars", "Neptune"], answer: "Saturn" },
+    { q: "Which natural disaster is measured with a Richter scale?", options: ["Earthquake", "Tornado", "Hurricane", "Volcano"], answer: "Earthquake" },
+    { q: "What is the smallest continent?", options: ["Australia", "Europe", "Antarctica", "South America"], answer: "Australia" },
+    { q: "Which is the largest mammal on land?", options: ["Elephant", "Giraffe", "Rhino", "Hippopotamus"], answer: "Elephant" },
+
+    { q: "Which vitamin is known as the anti-scurvy vitamin?", options: ["Vitamin C", "Vitamin D", "Vitamin A", "Vitamin K"], answer: "Vitamin C" },
+    { q: "What is the hardest natural substance?", options: ["Diamond", "Gold", "Iron", "Platinum"], answer: "Diamond" },
+    { q: "Who wrote 'The Odyssey'?", options: ["Homer", "Virgil", "Shakespeare", "Dante"], answer: "Homer" },
+    { q: "Which planet is closest to the sun?", options: ["Mercury", "Venus", "Earth", "Mars"], answer: "Mercury" },
+    { q: "What is the boiling point of water in Celsius?", options: ["100", "0", "50", "212"], answer: "100" },
+    { q: "Which is the longest river in the world?", options: ["Nile", "Amazon", "Yangtze", "Mississippi"], answer: "Nile" },
+    { q: "What is the chemical symbol for gold?", options: ["Au", "Ag", "Fe", "Pb"], answer: "Au" },
+    { q: "Which planet is known as the Blue Planet?", options: ["Earth", "Neptune", "Uranus", "Saturn"], answer: "Earth" },
+    { q: "Who discovered electricity?", options: ["Benjamin Franklin", "Thomas Edison", "Nikola Tesla", "Alexander Graham Bell"], answer: "Benjamin Franklin" },
+    { q: "Which is the largest island in the world?", options: ["Greenland", "Australia", "Borneo", "Madagascar"], answer: "Greenland" },
+    { q: "Which blood cells help fight infections?", options: ["White Blood Cells", "Red Blood Cells", "Platelets", "Plasma"], answer: "White Blood Cells" },
+    { q: "What is the main ingredient in bread?", options: ["Flour", "Sugar", "Salt", "Water"], answer: "Flour" }
+  ];
+
+  res.status(200).json(questions);
+                                                                }
